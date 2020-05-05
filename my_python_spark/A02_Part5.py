@@ -1,0 +1,77 @@
+# ------------------------------------------
+# FUNCTION my_map
+# ------------------------------------------
+def my_map(my_input_stream, my_output_stream, my_mapper_input_parameters):
+    result = {}
+
+    for line in my_input_stream:
+        # Process line
+        processed_line = process_line(line)
+
+        # Assign all heading values
+        wikimedia_project = processed_line[0]
+        web_page_name = processed_line[1]
+        language = processed_line[2]
+        num_views = int(processed_line[3])
+
+        # Add to the dictionary, using web page name as key
+        result[web_page_name] = (wikimedia_project, num_views, language)
+
+    # Print data to file
+    # e.g: "Man of Tai Chi" ('Wikipedia', 25, 'German')
+    # e.g: "Decision at Sundown" ('WikiVoyage', 5, 'English')
+    for key, value in result.items():
+        print(key + "\t" + str(value))
+        my_output_stream.write(key + "\t" + str(value) + "\n")
+
+
+# ------------------------------------------
+# FUNCTION my_reduce
+# ------------------------------------------
+def my_reduce(my_input_stream, my_output_stream, my_reducer_input_parameters):
+    result = {}
+
+    for item in my_input_stream:
+        # Process line
+        # NOTE: get_key_value() returns a tuple with a key and value
+        # where the value is another tuple: e.g: ('WikiVoyage', 6, 'Dutch')
+        processed_entry = get_key_value(item)
+
+        title = processed_entry[0]
+        others = processed_entry[1]
+
+        wikimedia_project = others[0]
+        num_views = int(others[1])
+        language = others[2]
+
+        key = wikimedia_project + '_' + language
+
+        # Set a default for if there is no entry for given key
+        default = (title, num_views)
+
+        # Get entry if it exists, otherwise set default
+        entry = result.get(key, default)
+
+        # Add the number of views together
+        result[key] = (entry[0], entry[1] + num_views)
+
+    # Sort the results in decreasing order
+    result = {k: v for k, v in sorted(result.items(), key=lambda item: item[1][1], reverse=True)}
+
+    # Print data to file
+    # e.g: WikiBooks_Dutch	('Land Ho!', 431)
+    # e.g: WikiVoyage_German ('King of Jazz', 339)
+    for key, value in result.items():
+        my_output_stream.write(key + "\t" + str(value) + "\n")
+
+# ------------------------------------------
+# FUNCTION my_spark_core_model
+# ------------------------------------------
+def my_spark_core_model(sc, my_dataset_dir):
+    pass
+
+# ------------------------------------------
+# FUNCTION my_spark_streaming_model
+# ------------------------------------------
+def my_spark_streaming_model(ssc, monitoring_dir):
+    pass

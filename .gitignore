@@ -1,0 +1,8 @@
+venv
+*.pdf
+my_dataset
+my_monitoring
+.idea
+.DS_Store
+my_checkpoint
+my_result
