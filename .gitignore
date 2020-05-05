@@ -1,3 +1,4 @@
+*.zip
 venv
 *.pdf
 my_dataset
