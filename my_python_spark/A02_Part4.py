@@ -65,11 +65,6 @@ def my_state_update(new_values, cur_agg_val):
     return res
 
 
-def b(t):
-    # print(t[4])
-    return t[1], 1
-
-
 # ------------------------------------------
 # FUNCTION my_model
 # ------------------------------------------
@@ -77,15 +72,8 @@ def my_model(ssc, monitoring_dir, window_duration, sliding_duration, time_step_i
     # 1. Operation C1: textFileStream
     inputDStream = ssc.textFileStream(monitoring_dir)
 
-    # 2. Operation T1: window
-    # The first argument is the window duration, i.e., how many previous batches of data are considered.
-    # The second argument is the sliding duration, i.e., how frequently the new DStream computes results.
-    windowDStream = inputDStream.window(window_duration * time_step_interval,
-                                        sliding_duration * time_step_interval
-                                        )
-
     # Process the raw lines into usable tuples
-    mapped_lines = windowDStream.map(process_line)
+    mapped_lines = inputDStream.map(process_line)
 
     # Filter above tuples by run-outs only
     runout_filter = mapped_lines.filter(lambda tup: tup[0] == '0' and tup[5] == '0')
@@ -93,23 +81,25 @@ def my_model(ssc, monitoring_dir, window_duration, sliding_duration, time_step_i
     # Map run-outs into key, value pairs: (StationName, 1)
     mapped_tuples = runout_filter.map(lambda x: (x[1], 1))
 
-    # Reduce all run-out stations to get totals
-    reduced_tuples = mapped_tuples.reduceByKey(lambda x, y: x + y)
+    # Accumulate the numbers
+    accumulateStream = mapped_tuples.updateStateByKey(my_state_update)
 
-    # 3. Operation T2: transform + sortBy
-    solutionDStream = reduced_tuples.transform(lambda rdd: rdd.sortBy(lambda item: item[1], ascending=False))
+    # Transform + sortBy
+    solutionDStream = accumulateStream.transform(lambda rdd: rdd.sortBy(lambda item: item[1], ascending=False))
 
-    # 4. Opetion T3: updateStateByKey, to get the increased amount of words appearing.
-    accumulateStream2 = solutionDStream.updateStateByKey(lambda x, y: my_state_update(x, y))
+    # First printout
+    solutionDStream.pprint()
+
+    # Window reduce by key
+    solutionDStream = mapped_tuples.reduceByKeyAndWindow(lambda x, y: x + y, lambda x, y: x - y, window_duration * time_step_interval, sliding_duration * time_step_interval)
 
     # Sort again
-    solutionDStreamf = accumulateStream2.transform(lambda rdd: rdd.sortBy(lambda item: item[1], ascending=False))
+    solutionDStream = solutionDStream.transform(lambda rdd: rdd.sortBy(lambda item: item[1], ascending=False))
 
-    # 6. Operation P1: persist
-    solutionDStreamf.persist(pyspark.StorageLevel.MEMORY_AND_DISK)
+    # Persist
+    solutionDStream.persist(pyspark.StorageLevel.MEMORY_AND_DISK)
 
-    # 7. Operation A1: pprint
-    solutionDStreamf.pprint()
+    # Second pprint
     solutionDStream.pprint()
 
 
